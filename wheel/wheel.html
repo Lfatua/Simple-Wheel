@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>选择困难症终结者 · 转盘</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0f0f1a;
+    color: #e8e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+    color: #c9b8ff;
+    text-shadow: 0 0 20px #7c5cfc88;
+  }
+
+  .main {
+    display: flex;
+    gap: 36px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 960px;
+  }
+
+  /* ── Wheel ── */
+  .wheel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .canvas-container {
+    position: relative;
+    width: 380px;
+    height: 380px;
+  }
+
+  canvas {
+    border-radius: 50%;
+    box-shadow: 0 0 40px #7c5cfc55, 0 0 0 4px #2a2a3e;
+  }
+
+  .pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 32px solid #ff6b6b;
+    filter: drop-shadow(0 2px 6px #ff6b6b99);
+    z-index: 10;
+  }
+
+  #spinBtn {
+    padding: 14px 48px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #7c5cfc, #c45cfc);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px #7c5cfc66;
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+  }
+
+  #spinBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px #7c5cfc88;
+  }
+
+  #spinBtn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .result-box {
+    min-height: 52px;
+    padding: 12px 28px;
+    background: #1e1e30;
+    border: 2px solid #3a3a5e;
+    border-radius: 16px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+    color: #ffd97d;
+    letter-spacing: 1px;
+    transition: all .3s;
+    min-width: 260px;
+  }
+
+  .result-box.pop {
+    border-color: #ffd97d;
+    box-shadow: 0 0 24px #ffd97d55;
+    animation: pop .35s ease;
+  }
+
+  @keyframes pop {
+    0%   { transform: scale(.9); }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 280px;
+    min-width: 220px;
+  }
+
+  .sidebar h2 {
+    font-size: .95rem;
+    color: #9090b8;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    background: #1e1e30;
+    border: 1.5px solid #3a3a5e;
+    border-radius: 10px;
+    color: #e8e8f0;
+    font-size: .95rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .input-row input:focus { border-color: #7c5cfc; }
+  .input-row input::placeholder { color: #55557a; }
+  .input-row input:disabled { opacity: .5; }
+
+  .btn-add {
+    padding: 10px 16px;
+    background: #7c5cfc;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .btn-add:hover { background: #9a7aff; }
+  .btn-add:disabled { opacity: .5; cursor: not-allowed; }
+
+  .item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .item-list::-webkit-scrollbar { width: 5px; }
+  .item-list::-webkit-scrollbar-track { background: transparent; }
+  .item-list::-webkit-scrollbar-thumb { background: #3a3a5e; border-radius: 4px; }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: #1e1e30;
+    border: 1.5px solid #2d2d4a;
+    border-radius: 10px;
+    font-size: .9rem;
+    animation: slideIn .2s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .item .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .item .label { flex: 1; word-break: break-all; }
+
+  .item .del {
+    background: none;
+    border: none;
+    color: #55557a;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: color .15s, background .15s;
+  }
+
+  .item .del:hover { color: #ff6b6b; background: #ff6b6b22; }
+
+  .empty-hint {
+    color: #444466;
+    font-size: .88rem;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-tool {
+    flex: 1;
+    padding: 9px;
+    background: #1e1e30;
+    border: 1.5px solid #3a3a5e;
+    border-radius: 10px;
+    color: #9090b8;
+    font-size: .82rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+
+  .btn-tool:hover:not(:disabled) { border-color: #7c5cfc; color: #c9b8ff; }
+  .btn-tool:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* 状态栏 */
+  .status-bar {
+    font-size: .75rem;
+    color: #55557a;
+    text-align: right;
+    min-height: 18px;
+    transition: color .3s;
+  }
+
+  .status-bar.ok   { color: #7cfc9a; }
+  .status-bar.err  { color: #ff6b6b; }
+  .status-bar.busy { color: #ffd97d; }
+</style>
+</head>
+<body>
+
+<h1>🎡 选择困难症终结者</h1>
+
+<div class="main">
+  <!-- Wheel -->
+  <div class="wheel-wrap">
+    <div class="canvas-container">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="380" height="380"></canvas>
+    </div>
+    <button id="spinBtn" onclick="spin()" disabled>开 始 转 动</button>
+    <div class="result-box" id="resultBox">加载中…</div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>选项管理</h2>
+
+    <div class="input-row">
+      <input id="itemInput" type="text" placeholder="输入新选项…" maxlength="20"
+             onkeydown="if(event.key==='Enter')addItem()" disabled>
+      <button class="btn-add" id="addBtn" onclick="addItem()" title="添加" disabled>＋</button>
+    </div>
+
+    <div class="item-list" id="itemList"></div>
+    <div class="empty-hint" id="emptyHint" style="display:none">暂无选项，快添加吧！</div>
+
+    <div class="toolbar">
+      <button class="btn-tool" id="clearBtn" onclick="clearAll()" disabled>🗑 清空</button>
+      <button class="btn-tool" id="shuffleBtn" onclick="shuffleItems()" disabled>🔀 打乱</button>
+    </div>
+    <div class="status-bar" id="statusBar">连接中…</div>
+  </div>
+</div>
+
+<script>
+const API = '/api/items';
+const PALETTE = [
+  '#7c5cfc','#c45cfc','#fc5c8a','#fc8c5c',
+  '#fcc45c','#8cfc5c','#5cfca8','#5cccfc',
+  '#5c8cfc','#a85cfc','#fc5cc4','#fc5c5c',
+];
+
+let items = [];
+let spinning = false;
+let currentAngle = 0;
+
+// ─── 状态栏 ───────────────────────────────────────────────
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+  if (type === 'ok') setTimeout(() => { el.textContent = ''; el.className = 'status-bar'; }, 2500);
+}
+
+// ─── API 封装 ─────────────────────────────────────────────
+async function apiFetch(method, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+// ─── 初始化 ───────────────────────────────────────────────
+async function init() {
+  try {
+    items = await apiFetch('GET');
+    enableUI();
+    setStatus('已连接后端', 'ok');
+  } catch (e) {
+    setStatus('无法连接后端，请先启动 server.py', 'err');
+  }
+  renderList();
+  drawWheel();
+}
+
+function enableUI() {
+  ['itemInput','addBtn','clearBtn','shuffleBtn'].forEach(id => {
+    document.getElementById(id).disabled = false;
+  });
+  document.getElementById('spinBtn').disabled = false;
+  document.getElementById('resultBox').textContent = '等待命运的宣判…';
+}
+
+// ─── 增 ───────────────────────────────────────────────────
+async function addItem() {
+  const input = document.getElementById('itemInput');
+  const val = input.value.trim();
+  if (!val) return;
+  setStatus('保存中…', 'busy');
+  try {
+    items = await apiFetch('POST', { item: val });
+    input.value = '';
+    renderList();
+    drawWheel();
+    setStatus('已添加 "' + val + '"', 'ok');
+  } catch (e) {
+    setStatus(e.message, 'err');
+    flashInput(input);
+  }
+}
+
+// ─── 删 ───────────────────────────────────────────────────
+async function deleteItem(name) {
+  setStatus('删除中…', 'busy');
+  try {
+    items = await apiFetch('DELETE', { item: name });
+    renderList();
+    drawWheel();
+    setStatus('已删除 "' + name + '"', 'ok');
+  } catch (e) {
+    setStatus(e.message, 'err');
+  }
+}
+
+// ─── 清空 ─────────────────────────────────────────────────
+async function clearAll() {
+  if (!confirm('确定清空所有选项？')) return;
+  setStatus('清空中…', 'busy');
+  try {
+    items = await apiFetch('PUT', { items: [] });
+    renderList();
+    drawWheel();
+    setStatus('已清空', 'ok');
+  } catch (e) {
+    setStatus(e.message, 'err');
+  }
+}
+
+// ─── 打乱 ─────────────────────────────────────────────────
+async function shuffleItems() {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  try {
+    items = await apiFetch('PUT', { items: shuffled });
+    renderList();
+    drawWheel();
+    setStatus('已打乱顺序', 'ok');
+  } catch (e) {
+    setStatus(e.message, 'err');
+  }
+}
+
+// ─── 渲染列表 ─────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('itemList');
+  const hint = document.getElementById('emptyHint');
+  hint.style.display = items.length === 0 ? 'block' : 'none';
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="dot" style="background:${PALETTE[i % PALETTE.length]}"></div>
+      <span class="label">${escHtml(item)}</span>
+      <button class="del" onclick="deleteItem('${escAttr(item)}')" title="删除">✕</button>`;
+    list.appendChild(div);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escAttr(s) {
+  return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+function flashInput(el) {
+  el.style.borderColor = '#ff6b6b';
+  setTimeout(() => el.style.borderColor = '', 600);
+}
+
+// ─── 画轮盘 ───────────────────────────────────────────────
+function drawWheel(highlightIdx = -1) {
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2, R = cx - 6;
+  ctx.clearRect(0, 0, W, H);
+
+  if (items.length === 0) {
+    ctx.fillStyle = '#1e1e30';
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#55557a';
+    ctx.font = '18px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('请添加选项', cx, cy);
+    return;
+  }
+
+  const n = items.length;
+  const arc = (Math.PI * 2) / n;
+
+  items.forEach((item, i) => {
+    const startAngle = currentAngle + i * arc - Math.PI / 2;
+    const endAngle   = startAngle + arc;
+    const color = PALETTE[i % PALETTE.length];
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = i === highlightIdx ? lighten(color, 40) : color;
+    ctx.fill();
+    ctx.strokeStyle = '#0f0f1a'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(startAngle + arc / 2);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#00000088'; ctx.shadowBlur = 4;
+    const fontSize = item.length <= 4 ? 18 : item.length <= 7 ? 14 : 12;
+    ctx.font = `bold ${fontSize}px 'PingFang SC','Microsoft YaHei',sans-serif`;
+    const label = item.length > 10 ? item.slice(0, 9) + '…' : item;
+    ctx.fillText(label, R - 14, 0);
+    ctx.restore();
+  });
+
+  ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+  ctx.fillStyle = '#0f0f1a'; ctx.fill();
+  ctx.strokeStyle = '#3a3a5e'; ctx.lineWidth = 3; ctx.stroke();
+}
+
+function lighten(hex, amount) {
+  const num = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, (num >> 16) + amount);
+  const g = Math.min(255, ((num >> 8) & 0xff) + amount);
+  const b = Math.min(255, (num & 0xff) + amount);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─── 转动 ─────────────────────────────────────────────────
+function spin() {
+  if (spinning || items.length === 0) return;
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+
+  const resultBox = document.getElementById('resultBox');
+  resultBox.textContent = '旋转中…';
+  resultBox.classList.remove('pop');
+
+  const n = items.length;
+  const arcSize = (Math.PI * 2) / n;
+  const totalDelta = (5 + Math.random() * 3) * Math.PI * 2 + Math.random() * Math.PI * 2;
+  const duration = 4000 + Math.random() * 1500;
+  const startAngle = currentAngle;
+  let startTime = null;
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+
+  function frame(ts) {
+    if (!startTime) startTime = ts;
+    const progress = Math.min((ts - startTime) / duration, 1);
+    currentAngle = startAngle + totalDelta * easeOut(progress);
+
+    const norm = ((-currentAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    const idx = Math.floor(norm / arcSize) % n;
+    drawWheel(progress === 1 ? idx : -1);
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      spinning = false;
+      document.getElementById('spinBtn').disabled = false;
+      const finalNorm = ((-currentAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const finalIdx  = Math.floor(finalNorm / arcSize) % n;
+      drawWheel(finalIdx);
+      resultBox.textContent = '🎉 ' + items[finalIdx];
+      resultBox.classList.add('pop');
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>
